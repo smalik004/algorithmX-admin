@@ -1,0 +1,63 @@
+// Custom Menu Styles
+.page-wrapper {
+    .page-body-wrapper {
+        div.sidebar-wrapper {
+            .sidebar-main {
+                .sidebar-links {
+                    >li {
+                        .sidebar-link {
+                            &.active {
+                                background-color: #b1b0bd !important;
+                                color: white !important;
+                                border-radius: 4px;
+                                margin: 0 10px;
+                                transition: all 0.3s ease;
+
+                                span {
+                                    color: white !important;
+                                }
+
+                                svg {
+                                    stroke: white !important;
+                                    fill: white !important;
+                                }
+                            }
+
+                            &:hover:not(.active) {
+                                background-color: rgba(115, 102, 255, 0.1);
+                                color: #7366ff;
+                                border-radius: 4px;
+                                margin: 0 10px;
+                                transition: all 0.3s ease;
+                            }
+                        }
+
+                        .sidebar-submenu {
+                            li {
+                                a {
+                                    &.active {
+                                        background-color: #99ff66 !important;
+                                        color: white !important;
+                                        border-radius: 4px;
+                                        margin: 0 10px;
+                                        padding: 7px 15px;
+                                        transition: all 0.3s ease;
+                                    }
+
+                                    &:hover:not(.active) {
+                                        background-color: rgba(115, 102, 255, 0.1);
+                                        color: #7366ff;
+                                        border-radius: 4px;
+                                        margin: 0 10px;
+                                        padding: 7px 15px;
+                                        transition: all 0.3s ease;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
