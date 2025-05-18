@@ -18,12 +18,8 @@ const RadialChart = ({ chartData }) => {
     },
   };
   return (
-    <ReactApexChart
-      type="radialBar"
-      height={130}
-      options={updatedOption.options}
-      series={updatedOption.series}
-    />
+    <> 
+    </>
   );
 };
 

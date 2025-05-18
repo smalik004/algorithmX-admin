@@ -8,7 +8,7 @@ import {
   Trash2,
   Eye,
 } from "lucide-react";
-import axios from "axios";
+import axiosHttp from "../../../utils/httpConfig";
 
 const BlogViewSection = () => {
   const [blogsData, setBlogsData] = useState([]);
@@ -69,18 +69,8 @@ const BlogViewSection = () => {
 
   const getBlogs = async () => {
     try {
-      const token =
-        "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJlbWFpbCI6InRlc3RAZ21haWwuY29tIiwicm9sZSI6ImFkbWluIiwicGVybWlzc2lvbnMiOltdLCJpc0FjdGl2ZSI6dHJ1ZSwiaWF0IjoxNzQ3MTMzMTg4fQ.WUrnLkJv1N2xAiF0cBwaNMYhHqSnuGy3Dy2YCARIzoI";
-      const config = {
-        headers: { Authorization: `Bearer ${token}` },
-      };
-
-      const response = await axios.get(
-        "http://localhost:5000/api/blog/get-blogs",
-        config
-      );
+      const response = await axiosHttp.get("/blog/get-blogs");
       if (response?.status === 200) {
-        console.log(response, "S");
         setBlogsData(response?.data?.data);
       }
     } catch (err) {}

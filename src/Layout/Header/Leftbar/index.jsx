@@ -39,7 +39,6 @@ const Leftbar = () => {
         toggleSidebar(!toggle);
         document.querySelector(".sidebar-wrapper").className = "sidebar-wrapper close_icon ";
       } else {
-        console.log("991 54 else", toggle);
         toggleSidebar(!toggle);
         document.querySelector(".sidebar-wrapper").className = "sidebar-wrapper ";
       }

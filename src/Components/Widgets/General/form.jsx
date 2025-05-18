@@ -15,7 +15,6 @@ const SEOForm = () => {
 
   const handleSubmit = (e) => {
     e.preventDefault();
-    console.log("Form Data Submitted:", formData);
     // You can send this data to your backend here
   };
 

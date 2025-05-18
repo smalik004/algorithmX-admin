@@ -8,6 +8,7 @@ import CustomizerContext from "../_helper/Customizer";
 import { ToastContainer, toast } from "react-toastify";
 import CryptoJS from "crypto-js";
 import axios from "axios";
+import axiosHttp from "../utils/httpConfig";
 
 const Signin = ({ selected }) => {
   const [email, setEmail] = useState("");
@@ -60,8 +61,8 @@ const Signin = ({ selected }) => {
       // Encrypt the password before sending
       const encryptedPassword = encryptPassword(password);
 
-      const response = await axios.post(
-        "http://localhost:5000/api/auth/sign-in",
+      const response = await axiosHttp.post(
+        "/auth/sign-in",
         {
           email,
           password: encryptedPassword,
@@ -69,9 +70,8 @@ const Signin = ({ selected }) => {
       );
 
       if (response.status === 200) {
-        // Store login info securely
         localStorage.setItem("login", JSON.stringify(true));
-        localStorage.setItem("token", response.token);
+        localStorage.setItem("token", response?.data?.data?.token);
 
         toast.success("Successfully logged in!");
         navigate(`${process.env.PUBLIC_URL}/dashboard/default/${layoutURL}`);
