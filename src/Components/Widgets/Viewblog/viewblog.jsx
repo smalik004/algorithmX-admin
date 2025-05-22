@@ -1,4 +1,6 @@
 import React, { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+
 import {
   ChevronLeft,
   ChevronRight,
@@ -9,6 +11,13 @@ import {
   Eye,
 } from "lucide-react";
 import axiosHttp from "../../../utils/httpConfig";
+import { toast } from "react-toastify";
+import { classes } from "../../../Data/Layouts";
+const defaultLayoutObj = classes.find(
+  (item) => Object.values(item).pop(1) === "compact-wrapper"
+);
+const layout =
+  localStorage.getItem("layout") || Object.keys(defaultLayoutObj).pop();
 
 const BlogViewSection = () => {
   const [blogsData, setBlogsData] = useState([]);
@@ -40,21 +49,33 @@ const BlogViewSection = () => {
       : text;
   };
 
-  // Format categories or arrays as comma-separated string
+  // Format arrays as comma-separated string, ensuring items is an array
   const formatArrayItems = (items) => {
-    if (!items || items.length === 0) return "";
+    if (!items) return "";
+    // Check if items is an array, if not (but has a value) return as string
+    if (!Array.isArray(items)) {
+      return String(items); // Convert to string if not already
+    }
     return items.join(", ");
   };
 
-  // Handle edit and delete actions
+  const navigate = useNavigate();
   const handleEdit = (id) => {
-    console.log(`Editing blog with ID: ${id}`);
-    // Implement edit functionality
+    navigate(
+      `${process.env.PUBLIC_URL}/widgets/addblog/${layout}?blogId=${id}`
+    );
   };
 
-  const handleDelete = (id) => {
-    console.log(`Deleting blog with ID: ${id}`);
-    // Implement delete functionality
+  const handleDelete = async (id) => {
+    try {
+      const response = await axiosHttp.patch(`/blog/delete-blog/${id}`);
+      if (response?.status === 200) {
+        toast.success(response?.data?.message);
+        getBlogs();
+      }
+    } catch (err) {
+      toast.warning(err?.response?.data?.message);
+    }
   };
 
   // View blog details
@@ -71,9 +92,38 @@ const BlogViewSection = () => {
     try {
       const response = await axiosHttp.get("/blog/get-blogs");
       if (response?.status === 200) {
-        setBlogsData(response?.data?.data);
+        // Process the data to ensure arrays are handled correctly
+        const processedData = response?.data?.data.map((blog) => ({
+          ...blog,
+          // Ensure tags is always an array
+          tags: Array.isArray(blog.tags)
+            ? blog.tags
+            : blog.tags
+            ? [blog.tags]
+            : [],
+          // Ensure meta_tags is always an array
+          meta_tags: Array.isArray(blog.meta_tags)
+            ? blog.meta_tags
+            : blog.meta_tags
+            ? [blog.meta_tags]
+            : [],
+          // Ensure meta_keywords is always an array
+          meta_keywords: Array.isArray(blog.meta_keywords)
+            ? blog.meta_keywords
+            : blog.meta_keywords
+            ? [blog.meta_keywords]
+            : [],
+          // Ensure category is a string
+          category: Array.isArray(blog.category)
+            ? blog.category.join(", ")
+            : blog.category || "",
+        }));
+
+        setBlogsData(processedData);
       }
-    } catch (err) {}
+    } catch (err) {
+      toast.warning(err?.response?.data?.message);
+    }
   };
 
   useEffect(() => {
@@ -86,12 +136,14 @@ const BlogViewSection = () => {
         <table className="w-full text-sm text-left">
           <thead className="text-gray-700 bg-gray-50 border-b">
             <tr>
-              <th className="py-4 px-6">S NO.</th>
+              <th className="py-4 px-6">Blog ID.</th>
               <th className="py-4 px-6">Title</th>
               <th className="py-4 px-6">Date</th>
-              <th className="py-4 px-6">Categories</th>
+              <th className="py-4 px-6">Category</th>
               <th className="py-4 px-6">Tags</th>
               <th className="py-4 px-6">Description</th>
+              <th className="py-4 px-6">Status</th>
+              <th className="py-4 px-6">Featured</th>
               <th className="py-4 px-6 text-center">Views</th>
               <th className="py-4 px-6 text-right">Actions</th>
             </tr>
@@ -99,22 +151,22 @@ const BlogViewSection = () => {
           <tbody className="divide-y">
             {currentBlogs.map((blog, index) => (
               <tr key={blog.id} className="bg-white hover:bg-gray-50">
-                <td className="py-4 px-6">{index + 1}</td>
+                <td className="py-4 px-6">{blog?.id}</td>
                 <td className="py-4 px-6 font-medium">
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full overflow-hidden ">
                       <img
-                        src={blog.image_url}
-                        alt={blog.title}
+                        src={blog?.image_url}
+                        alt={blog?.title}
                         className="w-full h-full object-cover"
                       />
                     </div>
-                    <span>{truncateText(blog.title, 30)}</span>
+                    <span>{truncateText(blog?.title, 30)}</span>
                   </div>
                 </td>
-                <td className="py-4 px-6">{blog.post_date}</td>
+                <td className="py-4 px-6">{blog?.post_date}</td>
                 <td className="py-4 px-6">
-                  {truncateText(formatArrayItems(blog.category), 20)}
+                  {truncateText(blog?.category, 20)}
                 </td>
                 <td className="py-4 px-6">
                   {truncateText(formatArrayItems(blog.tags), 25)}
@@ -122,6 +174,31 @@ const BlogViewSection = () => {
                 <td className="py-4 px-6">
                   {truncateText(blog.meta_description, 40)}
                 </td>
+                <td className="py-4 px-6">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      blog.status === "published"
+                        ? "bg-green-100 text-green-800"
+                        : blog.status === "draft"
+                        ? "bg-yellow-100 text-yellow-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {blog?.status || "N/A"}
+                  </span>
+                </td>
+                <td className="py-4 px-6 text-center">
+                  <span
+                    className={`px-2 py-1 rounded-full text-xs font-medium ${
+                      blog?.featured === true
+                        ? "bg-blue-100 text-blue-800"
+                        : "bg-gray-100 text-gray-800"
+                    }`}
+                  >
+                    {blog?.is_featured === false ? "Yes" : "No"}
+                  </span>
+                </td>
+
                 <td className="py-4 px-6 text-center">
                   {/* <span
                     className={`font-medium ${
@@ -257,52 +334,51 @@ const BlogViewSection = () => {
                     Published on: {selectedBlog.post_date}
                   </p>
                   <p className="text-green-600 font-medium">
-                    Views: {selectedBlog.views}
+                    Views: {selectedBlog?.views || 0}
                   </p>
                 </div>
 
                 <div>
                   <h3 className="text-lg font-semibold">Meta Description</h3>
                   <p className="text-gray-700">
-                    {selectedBlog.meta_description}
+                    {selectedBlog?.meta_description}
                   </p>
                 </div>
                 <div>
-                  <h3 className="text-lg font-semibold"> Content</h3>
-                  <p className="text-gray-700">{selectedBlog.content}</p>
+                  <h3 className="text-lg font-semibold">Content</h3>
+                  <div
+                    className="text-gray-700 prose prose-sm max-w-none"
+                    dangerouslySetInnerHTML={{ __html: selectedBlog.content }}
+                  />
                 </div>
 
-                {/* <div>
-                  <h3 className="text-lg font-semibold">Description</h3>
-                  <p className="text-gray-700">{selectedBlog.description}</p>
-                </div> */}
+                <div>
+                  <h3 className="text-lg font-semibold">Summary</h3>
+                  <p className="text-gray-700">{selectedBlog?.summary}</p>
+                </div>
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <h3 className="text-lg font-semibold">Categories</h3>
-                    <div className="flex flex-wrap gap-2 mt-1">
-                      {selectedBlog.category.map((category, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm"
-                        >
-                          {category}
-                        </span>
-                      ))}
+                    <h3 className="text-lg font-semibold">Category</h3>
+                    <div className="mt-1">
+                      <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm">
+                        {selectedBlog?.category}
+                      </span>
                     </div>
                   </div>
 
                   <div>
                     <h3 className="text-lg font-semibold">Tags</h3>
                     <div className="flex flex-wrap gap-2 mt-1">
-                      {selectedBlog.tags.map((tag, index) => (
-                        <span
-                          key={index}
-                          className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm"
-                        >
-                          {tag}
-                        </span>
-                      ))}
+                      {selectedBlog?.tags &&
+                        selectedBlog?.tags?.map((tag, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm"
+                          >
+                            {tag}
+                          </span>
+                        ))}
                     </div>
                   </div>
                 </div>
@@ -310,16 +386,34 @@ const BlogViewSection = () => {
                 <div>
                   <h3 className="text-lg font-semibold">Meta Tags</h3>
                   <div className="flex flex-wrap gap-2 mt-1">
-                    {selectedBlog.meta_tags.map((metaTag, index) => (
-                      <span
-                        key={index}
-                        className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
-                      >
-                        {metaTag}
-                      </span>
-                    ))}
+                    {selectedBlog?.meta_tags &&
+                      selectedBlog?.meta_tags?.map((metaTag, index) => (
+                        <span
+                          key={index}
+                          className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm"
+                        >
+                          {metaTag}
+                        </span>
+                      ))}
                   </div>
                 </div>
+
+                {selectedBlog?.meta_keywords &&
+                  selectedBlog?.meta_keywords?.length > 0 && (
+                    <div>
+                      <h3 className="text-lg font-semibold">Meta Keywords</h3>
+                      <div className="flex flex-wrap gap-2 mt-1">
+                        {selectedBlog?.meta_keywords.map((keyword, index) => (
+                          <span
+                            key={index}
+                            className="px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm"
+                          >
+                            {keyword}
+                          </span>
+                        ))}
+                      </div>
+                    </div>
+                  )}
               </div>
             </div>
             <div className="px-6 py-4 border-t flex justify-end">

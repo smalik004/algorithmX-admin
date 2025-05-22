@@ -1,31 +1,109 @@
 // BlogForm.jsx
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import Select from "react-select";
 import WordEditor from "./editor";
+import axiosHttp from "../../../utils/httpConfig";
+import { toast } from "react-toastify";
 
-export default function BlogForm({ onSubmit }) {
+// Custom Tag Input component
+const TagInput = ({ value = [], onChange, placeholder }) => {
+  const [inputValue, setInputValue] = useState("");
+
+  const handleKeyDown = (e) => {
+    if (e.key === "Enter" && inputValue.trim() !== "") {
+      e.preventDefault();
+      const newValue = [...value, inputValue.trim()];
+      onChange(newValue);
+      setInputValue("");
+    }
+  };
+
+  const handleInputChange = (e) => {
+    setInputValue(e.target.value);
+  };
+
+  const handleAddTag = () => {
+    if (inputValue.trim() !== "") {
+      const newValue = [...value, inputValue.trim()];
+      onChange(newValue);
+      setInputValue("");
+    }
+  };
+
+  const handleRemoveTag = (index) => {
+    const newValue = [...value];
+    newValue.splice(index, 1);
+    onChange(newValue);
+  };
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={handleInputChange}
+          onKeyDown={handleKeyDown}
+          placeholder={placeholder}
+          className="flex-1 p-2 border border-gray-300 rounded"
+        />
+        <button
+          type="button"
+          onClick={handleAddTag}
+          className="bg-blue-500 text-white px-4 py-2 rounded"
+        >
+          Add
+        </button>
+      </div>
+      <div className="flex flex-wrap gap-2 mt-2">
+        {value.map((tag, index) => (
+          <div
+            key={index}
+            className="bg-blue-100 px-3 py-1 rounded-full flex items-center gap-2"
+          >
+            <span>{tag}</span>
+            <button
+              type="button"
+              onClick={() => handleRemoveTag(index)}
+              className="text-red-500 font-bold"
+            >
+              ×
+            </button>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+export default function BlogForm({ onSubmit, blogId }) {
+  const [isEditMode, setIsEditMode] = useState(false);
+  const [initialEditorContent, setInitialEditorContent] = useState("");
+  const [currentImageUrl, setCurrentImageUrl] = useState(null);
+
   const {
     control,
     register,
     handleSubmit,
     setValue,
     watch,
+    reset,
     formState: { errors },
   } = useForm({
     defaultValues: {
       title: "",
       category: "",
       status: "draft",
-      isFeatured: false,
+      isFeatured: "",
       metaDescription: "",
-      metaKeywords: "",
+      metaKeywords: [],
       summary: "",
-      tags: "",
-      metaTags: "",
+      tags: [],
+      metaTags: [],
       image: null,
       imageAltText: "",
-      postDescription: "",
+      editorContent: "",
     },
   });
 
@@ -38,6 +116,10 @@ export default function BlogForm({ onSubmit }) {
     { value: "Business", label: "Business" },
     { value: "Productivity", label: "Productivity" },
     { value: "Finance", label: "Finance" },
+    { value: "Accessiblity", label: "Accessiblity" },
+    { value: "Andriod Dev", label: "Andriod Dev" },
+    { value: "Blockchain", label: "Blockchain" },
+    { value: "Gadgets", label: "Gadgets" },
   ];
   const editorRef = useRef(null);
 
@@ -45,12 +127,83 @@ export default function BlogForm({ onSubmit }) {
     setValue("editorContent", content, { shouldValidate: true });
   };
 
+  const getBlogById = async () => {
+    try {
+      const response = await axiosHttp.get(`/blog/${blogId}`);
+      if (response?.status === 200) {
+        setIsEditMode(true);
+        const blogData = response.data.data;
+
+        // Set current image URL
+        setCurrentImageUrl(blogData.image_url || null);
+
+        reset({
+          title: blogData.title || "",
+          category: blogData.category || "",
+          status: blogData.status || "draft",
+          isFeatured: blogData.is_featured,
+          metaDescription: blogData.meta_description || "",
+          metaKeywords: Array.isArray(blogData.meta_keywords)
+            ? blogData.meta_keywords
+            : [],
+          summary: blogData.summary || "",
+          tags: Array.isArray(blogData.tags) ? blogData.tags : [],
+          metaTags: Array.isArray(blogData.meta_tags) ? blogData.meta_tags : [],
+          imageAltText: blogData.image_alt || "",
+          editorContent: blogData.content || "",
+        });
+
+        toast.success(response?.data?.message || "Blog loaded successfully");
+      }
+    } catch (err) {
+      toast.warning(err?.response?.data?.message || "Failed to load blog");
+    }
+  };
+
+  useEffect(() => {
+    if (blogId) {
+      getBlogById();
+    } else {
+      setIsEditMode(false);
+      setInitialEditorContent("");
+      setCurrentImageUrl(null); // Reset image URL
+
+      reset({
+        title: "",
+        category: "",
+        status: "draft",
+        isFeatured: false,
+        metaDescription: "",
+        metaKeywords: [],
+        summary: "",
+        tags: [],
+        metaTags: [],
+        image: null,
+        imageAltText: "",
+        editorContent: "",
+      });
+    }
+  }, [blogId]);
+
+  const handleFormKeyDown = (e) => {
+    if (
+      e.key === "Enter" &&
+      e.target.tagName !== "TEXTAREA" &&
+      e.target.type !== "submit"
+    ) {
+      e.preventDefault();
+    }
+  };
+
   return (
     <form
       onSubmit={handleSubmit(onSubmit)}
+      onKeyDown={handleFormKeyDown}
       className="space-y-6 max-w-5xl mx-auto px-6 py-4 bg-white"
     >
-      <h1 className="text-[32px] font-semibold text-center">Add Blog</h1>
+      <h1 className="text-[32px] font-semibold text-center">
+        {isEditMode ? "Update Blog" : "Add Blog"}
+      </h1>
 
       {/* Title */}
       <div>
@@ -69,7 +222,7 @@ export default function BlogForm({ onSubmit }) {
         )}
       </div>
 
-      {/* Category */}
+      {/* Category - Using react-select */}
       <div>
         <label className="block mb-1 font-medium">
           Category <span className="text-red-500">*</span>
@@ -77,13 +230,21 @@ export default function BlogForm({ onSubmit }) {
         <Controller
           name="category"
           control={control}
-          rules={{ required: "At least one category is required" }}
+          rules={{ required: "Category is required" }}
           render={({ field }) => (
             <Select
               {...field}
-              isMulti
               options={categoryOptions}
               classNamePrefix="react-select"
+              isMulti={false}
+              onChange={(selectedOption) =>
+                field.onChange(selectedOption.value)
+              }
+              value={
+                categoryOptions.find(
+                  (option) => option.value === field.value
+                ) || null
+              }
             />
           )}
         />
@@ -138,16 +299,22 @@ export default function BlogForm({ onSubmit }) {
         )}
       </div>
 
-      {/* Meta Keywords */}
+      {/* Meta Keywords - Using Controller with custom TagInput component */}
       <div>
         <label className="block mb-1 font-medium">Meta Keywords</label>
-        <input
-          {...register("metaKeywords")}
-          placeholder="Enter meta keywords, comma separated (e.g., blog,tech,react)"
-          className="w-full p-2 border border-gray-300 rounded"
+        <Controller
+          name="metaKeywords"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <TagInput
+              value={value}
+              onChange={onChange}
+              placeholder="Type and press Enter to add keywords"
+            />
+          )}
         />
-        <p className="text-sm text-gray-500">
-          Add comma-separated keywords for SEO
+        <p className="text-sm text-gray-500 mt-1">
+          Press Enter after each keyword
         </p>
       </div>
 
@@ -169,44 +336,78 @@ export default function BlogForm({ onSubmit }) {
         )}
       </div>
 
-      {/* Tags */}
+      {/* Tags - Using Controller with custom TagInput component */}
       <div>
         <label className="block mb-1 font-medium">Tags</label>
-        <input
-          {...register("tags")}
-          placeholder="Enter tags, comma separated"
-          className="w-full p-2 border border-gray-300 rounded"
+        <Controller
+          name="tags"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <TagInput
+              value={value}
+              onChange={onChange}
+              placeholder="Type and press Enter to add tags"
+            />
+          )}
         />
-        <p className="text-sm text-gray-500">
-          Press Enter or comma to separate tags
-        </p>
+        <p className="text-sm text-gray-500 mt-1">Press Enter after each tag</p>
       </div>
 
-      {/* Meta Tags */}
+      {/* Meta Tags - Using Controller with custom TagInput component */}
       <div>
         <label className="block mb-1 font-medium">Meta Tags</label>
-        <input
-          {...register("metaTags")}
-          placeholder="Enter meta tags, comma separated"
-          className="w-full p-2 border border-gray-300 rounded"
+        <Controller
+          name="metaTags"
+          control={control}
+          render={({ field: { value, onChange } }) => (
+            <TagInput
+              value={value}
+              onChange={onChange}
+              placeholder="Type and press Enter to add meta tags"
+            />
+          )}
         />
-        <p className="text-sm text-gray-500">
-          Press Enter or comma to separate meta tags
+        <p className="text-sm text-gray-500 mt-1">
+          Press Enter after each meta tag
         </p>
       </div>
 
       {/* Upload Image */}
+      {/* Upload Image */}
       <div>
         <label className="block mb-1 font-medium">
-          Upload Image <span className="text-red-500">*</span>
+          Upload Image {!isEditMode && <span className="text-red-500">*</span>}
         </label>
+
+        {/* Show current image in edit mode */}
+        {isEditMode && currentImageUrl && (
+          <div className="mb-3">
+            <p className="text-sm text-gray-600 mb-2">Current image:</p>
+            <img
+              src={currentImageUrl}
+              alt="Current blog image"
+              className="max-w-xs max-h-32 object-cover border rounded"
+              onError={(e) => {
+                console.error("Image failed to load:", currentImageUrl);
+                e.target.style.display = "none";
+              }}
+            />
+          </div>
+        )}
+
         <input
           type="file"
           accept="image/*"
-          {...register("image", { required: "Image is required" })}
+          {...register("image", {
+            required: isEditMode ? false : "Image is required",
+          })}
           className="w-full"
         />
-        <p className="text-sm text-gray-500">(Only image files are allowed)</p>
+        <p className="text-sm text-gray-500">
+          {isEditMode
+            ? "(Leave empty to keep current image, or select a new image to replace)"
+            : "(Only image files are allowed)"}
+        </p>
         {errors.image && (
           <p className="text-red-500 text-sm">{errors.image.message}</p>
         )}
@@ -223,14 +424,18 @@ export default function BlogForm({ onSubmit }) {
       </div>
 
       {/* Post Description */}
-      <WordEditor ref={editorRef} updateContent={updateEditorContent} />
+      <WordEditor
+        ref={editorRef}
+        updateContent={updateEditorContent}
+        initialContent={watch("editorContent")}
+      />
 
       <div className="text-center mt-6">
         <button
           type="submit"
           className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700"
         >
-          Submit Blog
+          {isEditMode ? "Update Blog" : "Submit Blog"}
         </button>
       </div>
     </form>

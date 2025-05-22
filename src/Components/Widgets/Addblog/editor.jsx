@@ -23,7 +23,7 @@ import {
   X,
 } from "lucide-react";
 
-const WordEditor = forwardRef(({ updateContent }, ref) => {
+const WordEditor = forwardRef(({ updateContent, initialContent = "" }, ref) => {
   const [content, setContent] = useState("");
   const [fontSize, setFontSize] = useState("16px");
   const [fontFamily, setFontFamily] = useState("Arial");
@@ -39,9 +39,41 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
   const colorInputRef = useRef(null);
   const selectionRangeRef = useRef(null);
 
-  // Expose editor methods to parent
+  // Use a separate ref to track if initialContent has been applied
+  const initialContentAppliedRef = useRef(false);
+
+  useEffect(() => {
+    if (
+      initialContent &&
+      editorRef.current &&
+      !initialContentAppliedRef.current
+    ) {
+      editorRef.current.innerHTML = initialContent;
+      setContent(initialContent);
+      initialContentAppliedRef.current = true;
+    }
+  }, [initialContent]);
+  const cleanOutputHtml = (html) => {
+    // Create a temporary div to work with the HTML
+    const tempDiv = document.createElement("div");
+    tempDiv.innerHTML = html;
+
+    // Find and remove all span elements with the fadeIn class or similar
+    const fadeSpans = tempDiv.querySelectorAll(
+      'span[class*="fadeIn"], span[class*="_fadeIn"]'
+    );
+    fadeSpans.forEach((span) => {
+      // Replace the span with just its text content
+      const textNode = document.createTextNode(span.textContent);
+      span.parentNode.replaceChild(textNode, span);
+    });
+
+    return tempDiv.innerHTML;
+  };
   useImperativeHandle(ref, () => ({
-    getContent: () => editorRef.current.innerHTML,
+    getContent: () => {
+      return cleanOutputHtml(editorRef.current.innerHTML);
+    },
     setContent: (html) => {
       if (editorRef.current) {
         editorRef.current.innerHTML = html;
@@ -104,6 +136,20 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
         white-space: nowrap;
         z-index: 1000;
       }
+      
+      /* Make images and videos selectable */
+      .editor-image, .editor-video {
+        display: inline-block;
+        max-width: 100%;
+        margin: 8px 0;
+        border: 2px solid transparent;
+      }
+      
+      .editor-image:focus, .editor-video:focus,
+      .editor-image.selected, .editor-video.selected {
+        border: 2px solid #3b82f6;
+        outline: none;
+      }
     `;
     document.head.appendChild(style);
 
@@ -121,8 +167,105 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
           link.classList.add("editor-link");
         }
       });
+
+      // Make images and videos selectable and deletable
+      attachMediaEvents();
     }
   }, [content]);
+
+  // Add event listeners to media elements
+  const attachMediaEvents = () => {
+    if (!editorRef.current) return;
+
+    // Process images
+    const images = editorRef.current.querySelectorAll("img");
+    images.forEach((img) => {
+      if (!img.classList.contains("editor-image")) {
+        img.classList.add("editor-image");
+        img.setAttribute("tabindex", "0"); // Make focusable
+
+        // Add event listeners if not already added
+        if (!img.dataset.eventsAttached) {
+          img.dataset.eventsAttached = "true";
+
+          img.addEventListener("click", (e) => {
+            e.preventDefault();
+            selectMediaElement(img);
+          });
+
+          img.addEventListener("keydown", (e) => {
+            if (e.key === "Delete" || e.key === "Backspace") {
+              e.preventDefault();
+              img.remove();
+              handleContentChange({ currentTarget: editorRef.current });
+              placeCaretAfterNode(null);
+            }
+          });
+        }
+      }
+    });
+
+    // Process videos
+    const videos = editorRef.current.querySelectorAll("video");
+    videos.forEach((video) => {
+      if (!video.classList.contains("editor-video")) {
+        video.classList.add("editor-video");
+        video.setAttribute("tabindex", "0"); // Make focusable
+
+        // Add event listeners if not already added
+        if (!video.dataset.eventsAttached) {
+          video.dataset.eventsAttached = "true";
+
+          video.addEventListener("click", (e) => {
+            // Don't prevent default here to allow video controls to work
+            selectMediaElement(video);
+          });
+
+          video.addEventListener("keydown", (e) => {
+            if (e.key === "Delete" || e.key === "Backspace") {
+              e.preventDefault();
+              video.remove();
+              handleContentChange({ currentTarget: editorRef.current });
+              placeCaretAfterNode(null);
+            }
+          });
+        }
+      }
+    });
+  };
+
+  // Helper function to select a media element
+  const selectMediaElement = (element) => {
+    // Deselect all other elements
+    editorRef.current
+      .querySelectorAll(".editor-image, .editor-video")
+      .forEach((el) => {
+        el.classList.remove("selected");
+      });
+
+    // Select this element
+    element.classList.add("selected");
+    element.focus();
+  };
+
+  // Helper function to place caret at end of editor or after a specific node
+  const placeCaretAfterNode = (node) => {
+    const range = document.createRange();
+    const sel = window.getSelection();
+
+    if (node) {
+      range.setStartAfter(node);
+    } else {
+      // Place at end of editor
+      editorRef.current.focus();
+      range.selectNodeContents(editorRef.current);
+      range.collapse(false); // Collapse to end
+    }
+
+    sel.removeAllRanges();
+    sel.addRange(range);
+    editorRef.current.focus();
+  };
 
   const handleCommand = (command, value = null) => {
     document.execCommand(command, false, value);
@@ -134,10 +277,38 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        handleCommand("insertImage", event.target.result);
+        // Save current selection
+        saveSelection();
+
+        // Create a proper image element with styling
+        const imgElement = document.createElement("img");
+        imgElement.src = event.target.result;
+        imgElement.className = "editor-image";
+        imgElement.style.maxWidth = "100%";
+        imgElement.style.height = "auto";
+        imgElement.style.display = "block";
+        imgElement.style.margin = "10px 0";
+        imgElement.setAttribute("tabindex", "0");
+        imgElement.setAttribute("data-events-attached", "false");
+
+        // Insert the image into the editor
+        const selection = window.getSelection();
+        const range = selection.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(imgElement);
+
+        // Add a space after the image
+        const space = document.createTextNode("\u00A0");
+        range.setStartAfter(imgElement);
+        range.insertNode(space);
+
+        // Update the content
+        handleContentChange({ currentTarget: editorRef.current });
       };
       reader.readAsDataURL(file);
     }
+    // Clear the input value to allow selecting the same file again
+    e.target.value = "";
   };
 
   const handleVideoUpload = (e) => {
@@ -145,11 +316,26 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
     if (file) {
       const reader = new FileReader();
       reader.onload = (event) => {
-        const videoElement = `<video controls class="my-2 max-w-full h-auto" src="${event.target.result}"></video>`;
+        // Save current selection
+        saveSelection();
+
+        // Insert with proper class for selection/deletion
+        const videoElement = `<video controls src="${event.target.result}" class="editor-video" tabindex="0" data-events-attached="false"></video>`;
         document.execCommand("insertHTML", false, videoElement);
+
+        // Add a space after the video to ensure cursor can be placed after it
+        placeCaretAfterNode(
+          editorRef.current.querySelector("video:last-of-type")
+        );
+        document.execCommand("insertHTML", false, "&nbsp;");
+
+        // Make sure content is updated
+        handleContentChange({ currentTarget: editorRef.current });
       };
       reader.readAsDataURL(file);
     }
+    // Clear the input value to allow selecting the same file again
+    e.target.value = "";
   };
 
   const handleColorChange = (e) => {
@@ -231,11 +417,37 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
     setShowLinkDialog(false);
   };
 
-  // Update parent component with content changes
   const handleContentChange = (e) => {
-    const newContent = e.currentTarget.innerHTML;
-    setContent(newContent);
-    updateContent(newContent);
+    const rawContent = e.currentTarget.innerHTML;
+    const cleanedContent = cleanOutputHtml(rawContent);
+    setContent(cleanedContent);
+    if (updateContent) {
+      updateContent(cleanedContent);
+    }
+  };
+  // Handle keydown events in editor
+  const handleEditorKeyDown = (e) => {
+    // Check if Delete or Backspace is pressed and a media element is selected
+    if (
+      (e.key === "Delete" || e.key === "Backspace") &&
+      editorRef.current.querySelector(
+        ".editor-image.selected, .editor-video.selected"
+      )
+    ) {
+      e.preventDefault();
+      const selectedMedia = editorRef.current.querySelector(
+        ".editor-image.selected, .editor-video.selected"
+      );
+      selectedMedia.remove();
+      handleContentChange({ currentTarget: editorRef.current });
+      placeCaretAfterNode(null);
+    }
+
+    // Handle Enter key for new lines
+    if (e.key === "Enter") {
+      e.preventDefault();
+      document.execCommand("insertLineBreak");
+    }
   };
 
   return (
@@ -272,18 +484,21 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
 
             {/* Text formatting */}
             <button
+              type="button"
               onClick={() => handleCommand("bold")}
               className="p-2 hover:bg-gray-200 rounded"
             >
               <Bold className="w-5 h-5" />
             </button>
             <button
+              type="button"
               onClick={() => handleCommand("italic")}
               className="p-2 hover:bg-gray-200 rounded"
             >
               <Italic className="w-5 h-5" />
             </button>
             <button
+              type="button"
               onClick={() => handleCommand("underline")}
               className="p-2 hover:bg-gray-200 rounded"
             >
@@ -292,6 +507,7 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
 
             {/* Link button */}
             <button
+              type="button"
               onClick={handleOpenLinkDialog}
               className="p-2 hover:bg-gray-200 rounded"
             >
@@ -302,24 +518,28 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
 
             {/* Alignment */}
             <button
+              type="button"
               onClick={() => handleCommand("justifyLeft")}
               className="p-2 hover:bg-gray-200 rounded"
             >
               <AlignLeft className="w-5 h-5" />
             </button>
             <button
+              type="button"
               onClick={() => handleCommand("justifyCenter")}
               className="p-2 hover:bg-gray-200 rounded"
             >
               <AlignCenter className="w-5 h-5" />
             </button>
             <button
+              type="button"
               onClick={() => handleCommand("justifyRight")}
               className="p-2 hover:bg-gray-200 rounded"
             >
               <AlignRight className="w-5 h-5" />
             </button>
             <button
+              type="button"
               onClick={() => handleCommand("justifyFull")}
               className="p-2 hover:bg-gray-200 rounded"
             >
@@ -330,12 +550,14 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
 
             {/* Lists */}
             <button
+              type="button"
               onClick={() => handleCommand("insertUnorderedList")}
               className="p-2 hover:bg-gray-200 rounded"
             >
               <List className="w-5 h-5" />
             </button>
             <button
+              type="button"
               onClick={() => handleCommand("insertOrderedList")}
               className="p-2 hover:bg-gray-200 rounded"
             >
@@ -346,6 +568,7 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
 
             {/* Media */}
             <button
+              type="button"
               onClick={() => fileInputRef.current.click()}
               className="p-2 hover:bg-gray-200 rounded"
             >
@@ -360,6 +583,7 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
             />
 
             <button
+              type="button"
               onClick={() => videoInputRef.current.click()}
               className="p-2 hover:bg-gray-200 rounded"
             >
@@ -414,6 +638,7 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
             {/* Color picker */}
             <div className="relative inline-block">
               <button
+                type="button"
                 onClick={() => colorInputRef.current.click()}
                 className="flex items-center bg-white border rounded p-1"
               >
@@ -439,6 +664,7 @@ const WordEditor = forwardRef(({ updateContent }, ref) => {
           ref={editorRef}
           contentEditable={true}
           onInput={handleContentChange}
+          onKeyDown={handleEditorKeyDown}
           className="bg-white border border-gray-300 rounded-lg p-4 min-h-64 focus:outline-none focus:ring-2 focus:ring-blue-500"
           style={{ fontFamily }}
         ></div>
