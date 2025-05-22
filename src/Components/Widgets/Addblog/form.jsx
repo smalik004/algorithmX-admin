@@ -2,9 +2,9 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Controller, useForm } from "react-hook-form";
 import Select from "react-select";
+import { toast } from "react-toastify";
 import WordEditor from "./editor";
 import axiosHttp from "../../../utils/httpConfig";
-import { toast } from "react-toastify";
 
 // Custom Tag Input component
 const TagInput = ({ value = [], onChange, placeholder }) => {
@@ -80,7 +80,6 @@ const TagInput = ({ value = [], onChange, placeholder }) => {
 export default function BlogForm({ onSubmit, blogId }) {
   const [isEditMode, setIsEditMode] = useState(false);
   const [initialEditorContent, setInitialEditorContent] = useState("");
-  const [currentImageUrl, setCurrentImageUrl] = useState(null);
 
   const {
     control,
@@ -108,6 +107,7 @@ export default function BlogForm({ onSubmit, blogId }) {
   });
 
   const metaDesc = watch("metaDescription") || "";
+  const currentImage = watch("image") || "";
 
   const categoryOptions = [
     { value: "Technology", label: "Technology" },
@@ -127,18 +127,21 @@ export default function BlogForm({ onSubmit, blogId }) {
     setValue("editorContent", content, { shouldValidate: true });
   };
 
+  // In the getBlogById function, update these lines:
   const getBlogById = async () => {
     try {
       const response = await axiosHttp.get(`/blog/${blogId}`);
       if (response?.status === 200) {
+        // Set edit mode to true
         setIsEditMode(true);
+
+        // Get blog data from response
         const blogData = response.data.data;
 
-        // Set current image URL
-        setCurrentImageUrl(blogData.image_url || null);
-
+        // TO:
         reset({
           title: blogData.title || "",
+          // For category, convert string to object format for react-select
           category: blogData.category || "",
           status: blogData.status || "draft",
           isFeatured: blogData.is_featured,
@@ -149,11 +152,10 @@ export default function BlogForm({ onSubmit, blogId }) {
           summary: blogData.summary || "",
           tags: Array.isArray(blogData.tags) ? blogData.tags : [],
           metaTags: Array.isArray(blogData.meta_tags) ? blogData.meta_tags : [],
+          image: blogData.image_url,
           imageAltText: blogData.image_alt || "",
           editorContent: blogData.content || "",
         });
-
-        toast.success(response?.data?.message || "Blog loaded successfully");
       }
     } catch (err) {
       toast.warning(err?.response?.data?.message || "Failed to load blog");
@@ -164,10 +166,11 @@ export default function BlogForm({ onSubmit, blogId }) {
     if (blogId) {
       getBlogById();
     } else {
+      // Make sure we're in add mode when no blogId is present
       setIsEditMode(false);
       setInitialEditorContent("");
-      setCurrentImageUrl(null); // Reset image URL
 
+      // Reset form to default values when switching to add mode
       reset({
         title: "",
         category: "",
@@ -373,28 +376,11 @@ export default function BlogForm({ onSubmit, blogId }) {
       </div>
 
       {/* Upload Image */}
-      {/* Upload Image */}
       <div>
         <label className="block mb-1 font-medium">
-          Upload Image {!isEditMode && <span className="text-red-500">*</span>}
+          {isEditMode ? "Replace Image" : "Upload Image"}{" "}
+          {!isEditMode && <span className="text-red-500">*</span>}
         </label>
-
-        {/* Show current image in edit mode */}
-        {isEditMode && currentImageUrl && (
-          <div className="mb-3">
-            <p className="text-sm text-gray-600 mb-2">Current image:</p>
-            <img
-              src={currentImageUrl}
-              alt="Current blog image"
-              className="max-w-xs max-h-32 object-cover border rounded"
-              onError={(e) => {
-                console.error("Image failed to load:", currentImageUrl);
-                e.target.style.display = "none";
-              }}
-            />
-          </div>
-        )}
-
         <input
           type="file"
           accept="image/*"
@@ -405,11 +391,14 @@ export default function BlogForm({ onSubmit, blogId }) {
         />
         <p className="text-sm text-gray-500">
           {isEditMode
-            ? "(Leave empty to keep current image, or select a new image to replace)"
+            ? "(Leave empty to keep current image)"
             : "(Only image files are allowed)"}
         </p>
         {errors.image && (
           <p className="text-red-500 text-sm">{errors.image.message}</p>
+        )}
+        {isEditMode && typeof currentImage === "string" && (
+          <img src={currentImage} alt="blog-image" height={100} width={100} />
         )}
       </div>
 

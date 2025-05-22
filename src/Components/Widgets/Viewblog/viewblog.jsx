@@ -149,58 +149,59 @@ const BlogViewSection = () => {
             </tr>
           </thead>
           <tbody className="divide-y">
-            {currentBlogs.map((blog, index) => (
-              <tr key={blog.id} className="bg-white hover:bg-gray-50">
-                <td className="py-4 px-6">{blog?.id}</td>
-                <td className="py-4 px-6 font-medium">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-full overflow-hidden ">
-                      <img
-                        src={blog?.image_url}
-                        alt={blog?.title}
-                        className="w-full h-full object-cover"
-                      />
+            {currentBlogs?.length ? (
+              currentBlogs?.map((blog, index) => (
+                <tr key={blog.id} className="bg-white hover:bg-gray-50">
+                  <td className="py-4 px-6">{blog?.id}</td>
+                  <td className="py-4 px-6 font-medium">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full overflow-hidden ">
+                        <img
+                          src={blog?.image_url}
+                          alt={blog?.title}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span>{truncateText(blog?.title, 30)}</span>
                     </div>
-                    <span>{truncateText(blog?.title, 30)}</span>
-                  </div>
-                </td>
-                <td className="py-4 px-6">{blog?.post_date}</td>
-                <td className="py-4 px-6">
-                  {truncateText(blog?.category, 20)}
-                </td>
-                <td className="py-4 px-6">
-                  {truncateText(formatArrayItems(blog.tags), 25)}
-                </td>
-                <td className="py-4 px-6">
-                  {truncateText(blog.meta_description, 40)}
-                </td>
-                <td className="py-4 px-6">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      blog.status === "published"
-                        ? "bg-green-100 text-green-800"
-                        : blog.status === "draft"
-                        ? "bg-yellow-100 text-yellow-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {blog?.status || "N/A"}
-                  </span>
-                </td>
-                <td className="py-4 px-6 text-center">
-                  <span
-                    className={`px-2 py-1 rounded-full text-xs font-medium ${
-                      blog?.featured === true
-                        ? "bg-blue-100 text-blue-800"
-                        : "bg-gray-100 text-gray-800"
-                    }`}
-                  >
-                    {blog?.is_featured === false ? "Yes" : "No"}
-                  </span>
-                </td>
+                  </td>
+                  <td className="py-4 px-6">{blog?.post_date}</td>
+                  <td className="py-4 px-6">
+                    {truncateText(blog?.category, 20)}
+                  </td>
+                  <td className="py-4 px-6">
+                    {truncateText(formatArrayItems(blog.tags), 25)}
+                  </td>
+                  <td className="py-4 px-6">
+                    {truncateText(blog.meta_description, 40)}
+                  </td>
+                  <td className="py-4 px-6">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        blog.status === "published"
+                          ? "bg-green-100 text-green-800"
+                          : blog.status === "draft"
+                          ? "bg-yellow-100 text-yellow-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {blog?.status || "N/A"}
+                    </span>
+                  </td>
+                  <td className="py-4 px-6 text-center">
+                    <span
+                      className={`px-2 py-1 rounded-full text-xs font-medium ${
+                        blog?.is_featured
+                          ? "bg-blue-100 text-blue-800"
+                          : "bg-gray-100 text-gray-800"
+                      }`}
+                    >
+                      {blog?.is_featured ? "Yes" : "No"}
+                    </span>
+                  </td>
 
-                <td className="py-4 px-6 text-center">
-                  {/* <span
+                  <td className="py-4 px-6 text-center">
+                    {/* <span
                     className={`font-medium ${
                       blog.views.startsWith("-")
                         ? "text-red-500"
@@ -209,32 +210,39 @@ const BlogViewSection = () => {
                   >
                     {blog.views.startsWith("-") ? "↓" : "↑"} {blog.views}
                   </span> */}
-                </td>
-                <td className="py-4 px-6 text-right">
-                  <div className="flex justify-end space-x-2">
-                    <button
-                      onClick={() => handleView(blog)}
-                      className="p-2 text-green-600 hover:text-green-800"
-                      aria-label="View blog details"
-                    >
-                      <Eye size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleEdit(blog.id)}
-                      className="p-2 text-blue-600 hover:text-blue-800"
-                    >
-                      <Edit size={16} />
-                    </button>
-                    <button
-                      onClick={() => handleDelete(blog.id)}
-                      className="p-2 text-red-600 hover:text-red-800"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
+                  </td>
+                  <td className="py-4 px-6 text-right">
+                    <div className="flex justify-end space-x-2">
+                      <button
+                        onClick={() => handleView(blog)}
+                        className="p-2 text-green-600 hover:text-green-800"
+                        aria-label="View blog details"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleEdit(blog.id)}
+                        className="p-2 text-blue-600 hover:text-blue-800"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(blog.id)}
+                        className="p-2 text-red-600 hover:text-red-800"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))
+            ) : (
+              <tr>
+                <td colSpan={10} className="text-center py-6 text-gray-500">
+                  No blogs found
                 </td>
               </tr>
-            ))}
+            )}
           </tbody>
         </table>
       </div>

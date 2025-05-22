@@ -582,7 +582,7 @@ const WordEditor = forwardRef(({ updateContent, initialContent = "" }, ref) => {
               className="hidden"
             />
 
-            <button
+            {/* <button
               type="button"
               onClick={() => videoInputRef.current.click()}
               className="p-2 hover:bg-gray-200 rounded"
@@ -595,7 +595,7 @@ const WordEditor = forwardRef(({ updateContent, initialContent = "" }, ref) => {
               onChange={handleVideoUpload}
               accept="video/*"
               className="hidden"
-            />
+            /> */}
           </div>
 
           <div className="flex flex-wrap items-center gap-2">

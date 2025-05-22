@@ -12,8 +12,12 @@ const AddBlogComponent = () => {
   const handleBlogSubmit = async (data) => {
     // If image is uploaded:
     let imageFile;
-    if (data.image && data.image.length > 0) {
-      imageFile = data.image[0];
+    if (typeof data?.image === "string") {
+      imageFile = data?.image;
+    } else {
+      if (data.image && data.image.length > 0) {
+        imageFile = data.image[0];
+      }
     }
 
     try {
@@ -60,7 +64,13 @@ const AddBlogComponent = () => {
         toast.success(result?.data?.message || "Blog updated successfully!");
       }
     } catch (err) {
-      toast.warning(err?.response?.data?.message);
+      let error;
+      if (err?.response?.data?.message) {
+        error = err?.response?.data?.message;
+      } else {
+        error = err?.response?.statusText;
+      }
+      toast.warning(error);
     }
   };
 
